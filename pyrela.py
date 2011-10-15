@@ -1,10 +1,41 @@
 from decimal import Decimal, InvalidOperation
+import csv
 
 class Relation:
     def __init__(self, name, attrs, tuples):
         self.name = name
         self.attrs = tuple(attrs)
         self.tuples = set([tuple(t) for t in tuples])
+
+    @staticmethod
+    def from_csv(filename, attrs=None):
+        f = open(filename)
+        reader = csv.reader(f)
+
+        if attrs is None:
+            row = reader.next()
+            attrs = [e.strip("'").strip('"') for e in row]
+
+        tuples = []
+
+        for row in reader:
+            t = []
+            for e in row:
+                try:
+                    e = Decimal(e)
+                except InvalidOperation:
+                    e = e.strip("'").strip('"')
+                t.append(e)
+            tuples.append(tuple(t))
+
+        f.close()
+
+        if filename.endswith('.csv'):
+            name = filename[:-4]
+        else:
+            name = filename
+
+        return Relation(name, attrs, tuples)
 
     def display(self):
         cols = range(len(self.attrs))
@@ -25,7 +56,7 @@ class Relation:
                     Decimal(t[i])
                     e = " " * (widths[i] - len(str(t[i]))) + str(t[i]) + " "
                 except InvalidOperation:
-                    e = " " + t[i] + " " * (widths[i] - len(t[i])) + str(t[i]) + " "
+                    e = " " + t[i] + " " * (widths[i] - len(t[i]))
                 row.append(e)
 
             print "|".join(row)
