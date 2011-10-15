@@ -1,7 +1,7 @@
 import unittest
 from pyrela import *
 
-class SimpleRelationTest(unittest.TestCase):
+class OperatorTests(unittest.TestCase):
     def setUp(self):
         self.r1 = Relation('r1', ['A', 'B'],
                            [[0, 0],
@@ -73,6 +73,31 @@ class SimpleRelationTest(unittest.TestCase):
                        [1, 1, 0],
                        [1, 1, 1]])
         self.assertTrue(join(self.r1, self.r2).equal(rj))
+
+class ErrorTests(unittest.TestCase):
+    def setUp(self):
+        self.person = Relation.from_csv('person.csv', ['name', 'age', 'gender'])
+        self.frequents = Relation.from_csv('frequents.csv', ['name', 'pizzeria'])
+        self.eats = Relation.from_csv('eats.csv', ['name', 'pizza'])
+        self.serves = Relation.from_csv('serves.csv', ['pizzeria', 'pizza', 'price'])
+    
+    def test_project_error(self):
+        self.assertRaises(ProjectException, self.person.project, ['pizza'])
+
+    def test_rename_error(self):
+        self.assertRaises(RenameException, self.frequents.rename, ['age'])
+
+    def test_select_error_1(self):
+        self.assertRaises(SelectException, self.eats.select, "name")
+
+    def test_select_error_2(self):
+        self.assertRaises(SelectException, self.serves.select, "gender == 'male'")
+
+    def test_cross_error(self):
+        self.assertRaises(CrossException, cross, self.person, self.frequents)
+
+    def test_join_error(self):
+        self.assertRaises(JoinException, join, self.person, self.serves)
 
 if __name__ == '__main__':
     unittest.main()
