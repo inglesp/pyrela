@@ -86,13 +86,13 @@ def project(new_attrs, rel):
 
     indices = [rel.attrs.index(a) for a in new_attrs]
     new_tuples = [[t[i] for i in indices] for t in rel.tuples]
-    name = "Project%s %s" % (new_attrs, rel.name)
+    name = "Project%s (%s)" % (new_attrs, rel.name)
     return Relation(name, new_attrs, new_tuples)
 
 def rename(new_attrs, rel):
     if len(rel.attrs) != len(new_attrs):
         raise RenameException("Relation '%s' has %d attributes, but you're trying to rename %d attributes" % (rel.name, len(rel.attrs), len(new_attrs)))
-    name = "Rename%s %s" % (new_attrs, rel.name)
+    name = "Rename%s (%s)" % (new_attrs, rel.name)
     return Relation(name, new_attrs, rel.tuples)
 
 def select(condition, rel):
@@ -118,7 +118,7 @@ def select(condition, rel):
         pass
 
     new_tuples = [t for t in rel.tuples if eval("t[ix] %s %s" % (cmp, value))]
-    name = "Select[%s] %s" % (condition, rel.name)
+    name = "Select[%s] (%s)" % (condition, rel.name)
     return Relation(name, rel.attrs, new_tuples)
     
 def cross(rel1, rel2):
@@ -128,7 +128,7 @@ def cross(rel1, rel2):
 
     new_attrs = rel1.attrs + rel2.attrs
     new_tuples = [t1 + t2 for t1 in rel1.tuples for t2 in rel2.tuples]
-    name = "'%s' Cross '%s'" % (rel1.name, rel2.name)
+    name = "(%s) Cross (%s)" % (rel1.name, rel2.name)
     return Relation(name, new_attrs, new_tuples)
 
 def join(rel1, rel2):
@@ -160,7 +160,7 @@ def join(rel1, rel2):
 
         new_tuples.extend(cross_product.tuples)
 
-    name = "'%s' Join '%s" % (rel1.name, rel2.name)
+    name = "(%s) Join (%s)" % (rel1.name, rel2.name)
 
     return Relation(name, new_attrs, new_tuples)
 

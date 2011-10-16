@@ -18,7 +18,13 @@ class OperatorTests(unittest.TestCase):
                             [1, 'a'],
                             [0, 'b'],
                             [1, 'b']])
-        
+
+        self.r4 = Relation('r4', ['A', 'B'],
+                           [[1, 2], [3, 4]])
+
+        self.r5 = Relation('r4', ['A', 'B'],
+                           [[3, 4], [5, 6]])
+
     def test_project(self):
         r = Relation('r', ['A'], [[0], [1]])
         self.assertTrue(self.r1.project(['A']).equal(r))
