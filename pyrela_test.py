@@ -99,5 +99,18 @@ class ErrorTests(unittest.TestCase):
     def test_join_error(self):
         self.assertRaises(JoinException, join, self.person, self.serves)
 
+class PizzaTests(unittest.TestCase):
+    def setUp(self):
+        self.person = Relation.from_csv('person.csv', ['name', 'age', 'gender'])
+        self.frequents = Relation.from_csv('frequents.csv', ['name', 'pizzeria'])
+        self.eats = Relation.from_csv('eats.csv', ['name', 'pizza'])
+        self.serves = Relation.from_csv('serves.csv', ['pizzeria', 'pizza', 'price'])
+
+    def test_1(self):
+        # Find all pizzerias frequented by at least one person under the age of 18
+        computed = join(self.person.select('age < 18'), self.frequents).project(['pizzeria'])
+        expected = Relation("", ["pizzeria"], [["Straw Hat"], ["New York Pizza"], ["Pizza Hut"]])
+        self.assertTrue(computed.equal(expected))
+
 if __name__ == '__main__':
     unittest.main()

@@ -148,7 +148,11 @@ def join(rel1, rel2):
         rel2_filtered = rel2
         for a in common_attrs:
             ix = rel1.attrs.index(a)
-            condition = "%s == %s" % (a, t[ix])
+            try:
+                Decimal(t[ix])
+                condition = "%s == %s" % (a, t[ix])
+            except InvalidOperation:
+                condition = "%s == '%s'" % (a, t[ix])
             rel2_filtered = rel2_filtered.select(condition)
 
         projection = rel2_filtered.project(rel2_unique_attrs)
