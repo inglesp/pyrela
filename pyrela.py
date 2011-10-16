@@ -164,9 +164,37 @@ def join(rel1, rel2):
 
     return Relation(name, new_attrs, new_tuples)
 
+def diff(rel1, rel2):
+    if rel1.attrs != rel2.attrs:
+        raise DiffException("'%s' and '%s' do not have matching attributes" % (rel1.name, rel2.name))
+
+    new_tuples = rel1.tuples - rel2.tuples
+    name = "(%s) Diff (%s)" % (rel1.name, rel2.name)
+    return Relation(name, rel1.attrs, new_tuples)
+
+def union(rel1, rel2):
+    if rel1.attrs != rel2.attrs:
+        raise UnionException("'%s' and '%s' do not have matching attributes" % (rel1.name, rel2.name))
+
+    new_tuples = rel1.tuples | rel2.tuples
+    name = "(%s) Union (%s)" % (rel1.name, rel2.name)
+    return Relation(name, rel1.attrs, new_tuples)
+
+def intersection(rel1, rel2):
+    if rel1.attrs != rel2.attrs:
+        raise IntersectionException("'%s' and '%s' do not have matching attributes" % (rel1.name, rel2.name))
+
+    new_tuples = rel1.tuples & rel2.tuples
+    name = "(%s) Intersection (%s)" % (rel1.name, rel2.name)
+    return Relation(name, rel1.attrs, new_tuples)
+
+
 class RelationException(Exception): pass
 class ProjectException(Exception): pass
 class RenameException(Exception): pass
 class SelectException(Exception): pass
 class CrossException(Exception): pass
 class JoinException(Exception): pass
+class DiffException(Exception): pass
+class UnionException(Exception): pass
+class IntersectionException(Exception): pass

@@ -80,6 +80,18 @@ class OperatorTests(unittest.TestCase):
                        [1, 1, 1]])
         self.assertTrue(join(self.r1, self.r2).equal(rj))
 
+    def test_diff(self):
+        r = Relation('diff', ['A', 'B'], [[1, 2]])
+        self.assertTrue(diff(self.r4, self.r5).equal(r))
+
+    def test_union(self):
+        r = Relation('union', ['A', 'B'], [[1, 2], [3, 4], [5, 6]])
+        self.assertTrue(union(self.r4, self.r5).equal(r))
+
+    def test_intersection(self):
+        r = Relation('intersection', ['A', 'B'], [[3, 4]])
+        self.assertTrue(intersection(self.r4, self.r5).equal(r))
+
 class ErrorTests(unittest.TestCase):
     def setUp(self):
         self.person = Relation.from_csv('person.csv', ['name', 'age', 'gender'])
@@ -104,6 +116,15 @@ class ErrorTests(unittest.TestCase):
 
     def test_join_error(self):
         self.assertRaises(JoinException, join, self.person, self.serves)
+
+    def test_diff_error(self):
+        self.assertRaises(DiffException, diff, self.person, self.frequents)
+
+    def test_union_error(self):
+        self.assertRaises(UnionException, union, self.person, self.frequents)
+
+    def test_intersection_error(self):
+        self.assertRaises(IntersectionException, intersection, self.person, self.frequents)
 
 class PizzaTests(unittest.TestCase):
     def setUp(self):
