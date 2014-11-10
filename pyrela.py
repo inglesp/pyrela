@@ -1,200 +1,184 @@
-from decimal import Decimal, InvalidOperation
-import csv
+import json
+
+
+def F(fieldname):
+    return {'field': fieldname}
+
 
 class Relation:
-    def __init__(self, name, attrs, tuples):
+    def __init__(self, attrs, tuples):
         n = len(attrs)
-        bad_tuples = [t for t in tuples if len(t) != n]
-        if bad_tuples:
-            raise RelationException("Each tuple in relation '%s' should have %d elements" % (name, n))
+        assert all(t for t in tuples if len(t) == n)
 
-        self.name = name
         self.attrs = tuple(attrs)
-        self.tuples = set([tuple(t) for t in tuples])
+        self.tuples = {tuple(t) for t in tuples}
+
 
     @staticmethod
-    def from_csv(filename, attrs=None):
-        f = open(filename)
-        reader = csv.reader(f)
+    def from_json(filename):
+        with open(filename) as f:
+            data = json.load(f)
 
-        if attrs is None:
-            row = reader.next()
-            attrs = [e.strip("'").strip('"') for e in row]
+        return Relation(data['attrs'], data['tuples'])
 
-        tuples = []
 
-        for row in reader:
-            t = []
-            for e in row:
-                try:
-                    e = Decimal(e)
-                except InvalidOperation:
-                    e = e.strip("'").strip('"')
-                t.append(e)
-            tuples.append(tuple(t))
-
-        f.close()
-
-        if filename.endswith('.csv'):
-            name = filename[:-4]
-        else:
-            name = filename
-
-        return Relation(name, attrs, tuples)
-
-    def display(self):
+    def __repr__(self):
         cols = range(len(self.attrs))
         widths = [1 + max([len(str(t[i])) for t in self.tuples] + [len(self.attrs[i])]) 
                   for i in cols]
 
-        headings = [" " + self.attrs[i] + " " * (widths[i] - len(self.attrs[i]))
+        headings = [' ' + self.attrs[i] + ' ' * (widths[i] - len(self.attrs[i]))
                     for i in cols]
- 
-        print "|".join(headings)
 
-        print "+".join(["-" * (widths[i] + 1) for i  in cols])
+        lines = []
+ 
+        lines.append('|'.join(headings))
+
+        lines.append('+'.join(['-' * (widths[i] + 1) for i  in cols]))
 
         for t in self.tuples:
             row = []
             for i in cols:
-                try:
-                    Decimal(t[i])
-                    e = " " * (widths[i] - len(str(t[i]))) + str(t[i]) + " "
-                except InvalidOperation:
-                    e = " " + t[i] + " " * (widths[i] - len(t[i]))
+                e = ' ' + str(t[i]) + ' ' * (widths[i] - len(str(t[i]))) 
                 row.append(e)
 
-            print "|".join(row)
+            lines.append('|'.join(row))
+
+        return '\n'.join([''] + lines + [''])
 
 
-    def equal(self, other):
+    def __eq__(self, other):
         return self.attrs == other.attrs and self.tuples == other.tuples
 
+
     def rename(self, new_attrs):
-        return rename(new_attrs, self)
+        assert len(new_attrs) == len(self.attrs)
+        return Relation(new_attrs, self.tuples)
 
-    def project(self, new_attrs):
-        return project(new_attrs, self)
 
-    def select(self, condition):
-        return select(condition, self)
+    def project(self, attrs):
+        assert set(attrs) <= set(self.attrs)
 
-def project(new_attrs, rel):
-    bad_attrs = set(new_attrs) - set(rel.attrs)
-    if bad_attrs:
-        raise ProjectException("Relation '%s' does not have attributes: %s" % (rel.name, list(bad_attrs)))
+        indices = [self.attrs.index(a) for a in attrs]
+        new_tuples = [[t[i] for i in indices] for t in self.tuples]
+        return Relation(attrs, new_tuples)
 
-    indices = [rel.attrs.index(a) for a in new_attrs]
-    new_tuples = [[t[i] for i in indices] for t in rel.tuples]
-    name = "Project%s (%s)" % (new_attrs, rel.name)
-    return Relation(name, new_attrs, new_tuples)
 
-def rename(new_attrs, rel):
-    if len(rel.attrs) != len(new_attrs):
-        raise RenameException("Relation '%s' has %d attributes, but you're trying to rename %d attributes" % (rel.name, len(rel.attrs), len(new_attrs)))
-    name = "Rename%s (%s)" % (new_attrs, rel.name)
-    return Relation(name, new_attrs, rel.tuples)
+    def select(self, *predicates):
+        predicate_fn = build_predicate_fn(*predicates)
+        dicts = [dict(zip(self.attrs, t)) for t in self.tuples]
+        selected_dicts = [d for d in dicts if predicate_fn(d)]
+        selected_tuples = {tuple(d[k] for k in self.attrs) for d in selected_dicts}
+        return Relation(self.attrs, selected_tuples)
 
-def select(condition, rel):
-    found_cmp = False
-    for cmp in ['==', '<=', '>=', '<', '>']:
-        if cmp in condition:
-            found_cmp = True
-            break
 
-    if not found_cmp:
-        raise SelectException("Condition '%s' does not contain comparison operator (one of '==', '<=', '>=', '<', '>')" % rel.name)
-
-    attr, value = [token.strip() for token in condition.split(cmp)]
-
-    try:
-        ix = rel.attrs.index(attr)
-    except ValueError:
-        raise SelectException("Relation '%s' does not have attribute '%s'" % (rel.name, attr))
-
-    try:
-        value = Decimal(value)
-    except InvalidOperation:
-        pass
-
-    new_tuples = [t for t in rel.tuples if eval("t[ix] %s %s" % (cmp, value))]
-    name = "Select[%s] (%s)" % (condition, rel.name)
-    return Relation(name, rel.attrs, new_tuples)
-    
 def cross(rel1, rel2):
-    bad_attrs = set(rel1.attrs) & set(rel2.attrs)
-    if bad_attrs:
-        raise CrossException("'%s' and '%s' both contain attributes: %s" % (rel1.name, rel2.name, list(bad_attrs)))
+    assert not set(rel1.attrs) & set(rel2.attrs)
 
     new_attrs = rel1.attrs + rel2.attrs
     new_tuples = [t1 + t2 for t1 in rel1.tuples for t2 in rel2.tuples]
-    name = "(%s) Cross (%s)" % (rel1.name, rel2.name)
-    return Relation(name, new_attrs, new_tuples)
+    return Relation(new_attrs, new_tuples)
+
 
 def join(rel1, rel2):
     common_attrs = set(rel1.attrs) & set(rel2.attrs)
-    if not common_attrs:
-        raise JoinException("'%s' and '%s' have no common attributes" % (rel1.name, rel2.name))
+    assert common_attrs
 
-    rel2_unique_attrs = tuple([a for a in rel2.attrs if a not in common_attrs])
+    rel1a_attrs = [(1, attr) for attr in rel1.attrs]
+    rel2a_attrs = [(2, attr) for attr in rel2.attrs]
+    rel2a_only_attrs = [attr for attr in rel2a_attrs if attr[1] not in common_attrs]
+    joined_attrs = rel1a_attrs + rel2a_only_attrs
+    renamed_attrs = [attr[1] for attr in joined_attrs]
 
-    new_attrs = rel1.attrs + rel2_unique_attrs
+    rel1a = rel1.rename(rel1a_attrs)
+    rel2a = rel2.rename(rel2a_attrs)
 
-    new_tuples = []
+    cross_rel = cross(rel1a, rel2a)
 
-    for t in rel1.tuples:
-        singleton_rel = Relation('_', rel1.attrs, [t])
+    predicates = [{'lhs': {'field': (1, attr)}, 'rhs': {'field': (2, attr)}} for attr in common_attrs]
 
-        rel2_filtered = rel2
-        for a in common_attrs:
-            ix = rel1.attrs.index(a)
-            try:
-                Decimal(t[ix])
-                condition = "%s == %s" % (a, t[ix])
-            except InvalidOperation:
-                condition = "%s == '%s'" % (a, t[ix])
-            rel2_filtered = rel2_filtered.select(condition)
+    join_rel = cross_rel.select(*predicates)
+    return join_rel.project(joined_attrs).rename(renamed_attrs)
 
-        projection = rel2_filtered.project(rel2_unique_attrs)
-        cross_product = cross(singleton_rel, projection)
-
-        new_tuples.extend(cross_product.tuples)
-
-    name = "(%s) Join (%s)" % (rel1.name, rel2.name)
-
-    return Relation(name, new_attrs, new_tuples)
 
 def diff(rel1, rel2):
-    if rel1.attrs != rel2.attrs:
-        raise DiffException("'%s' and '%s' do not have matching attributes" % (rel1.name, rel2.name))
+    assert rel1.attrs == rel2.attrs
 
     new_tuples = rel1.tuples - rel2.tuples
-    name = "(%s) Diff (%s)" % (rel1.name, rel2.name)
-    return Relation(name, rel1.attrs, new_tuples)
+    return Relation(rel1.attrs, new_tuples)
+
 
 def union(rel1, rel2):
-    if rel1.attrs != rel2.attrs:
-        raise UnionException("'%s' and '%s' do not have matching attributes" % (rel1.name, rel2.name))
+    assert rel1.attrs == rel2.attrs
 
     new_tuples = rel1.tuples | rel2.tuples
-    name = "(%s) Union (%s)" % (rel1.name, rel2.name)
-    return Relation(name, rel1.attrs, new_tuples)
+    return Relation(rel1.attrs, new_tuples)
+
 
 def intersection(rel1, rel2):
-    if rel1.attrs != rel2.attrs:
-        raise IntersectionException("'%s' and '%s' do not have matching attributes" % (rel1.name, rel2.name))
+    assert rel1.attrs == rel2.attrs
 
     new_tuples = rel1.tuples & rel2.tuples
-    name = "(%s) Intersection (%s)" % (rel1.name, rel2.name)
-    return Relation(name, rel1.attrs, new_tuples)
+    return Relation(rel1.attrs, new_tuples)
 
 
-class RelationException(Exception): pass
-class ProjectException(Exception): pass
-class RenameException(Exception): pass
-class SelectException(Exception): pass
-class CrossException(Exception): pass
-class JoinException(Exception): pass
-class DiffException(Exception): pass
-class UnionException(Exception): pass
-class IntersectionException(Exception): pass
+comparators = {
+    'exact': lambda lhs, rhs: lhs == rhs,
+    'iexact': lambda lhs, rhs: lhs.lower() == rhs.lower(),
+    'contains': lambda lhs, rhs: rhs in lhs,
+    'icontains': lambda lhs, rhs: rhs.lower() in lhs.lower(),
+    'gt': lambda lhs, rhs: lhs > rhs,
+    'gte': lambda lhs, rhs: lhs >= rhs,
+    'lt': lambda lhs, rhs: lhs < rhs,
+    'lte': lambda lhs, rhs: lhs <= rhs,
+    'startswith': lambda lhs, rhs: lhs.startswith(rhs),
+    'endswith': lambda lhs, rhs: lhs.endswith(rhs),
+    'istartswith': lambda lhs, rhs: lhs.lower().startswith(rhs.lower()),
+    'iendswith': lambda lhs, rhs: lhs.lower().endswith(rhs.lower()),
+    'year': lambda lhs, rhs: lhs.year == rhs,
+    'month': lambda lhs, rhs: lhs.month == rhs,
+    'day': lambda lhs, rhs: lhs.day == rhs,
+}
+
+
+def build_predicate_fn(*nodes, **kwargs):
+    if len(nodes) == 1:
+        node = nodes[0]
+
+        if isinstance(node, tuple):
+            return build_predicate_fn(*node[0], **node[1])
+
+        elif isinstance(node, dict):
+            def predicate_fn(record):
+                if isinstance(node['lhs'], dict):
+                    lhs = record[node['lhs']['field']]
+                else:
+                    lhs = node['lhs']
+
+                if isinstance(node['rhs'], dict):
+                    rhs = record[node['rhs']['field']]
+                else:
+                    rhs = node['rhs']
+
+                comparator_fn = comparators[node.get('comparator', 'exact')]
+                return comparator_fn(lhs, rhs)
+
+        else:
+            assert False
+
+    else:
+        child_predicate_fns = [build_predicate_fn(node) for node in nodes]
+
+        def predicate_fn(record):
+            if kwargs.get('connector', 'AND') == 'AND':
+                result = all(p(record) for p in child_predicate_fns)
+            else:
+                result = any(p(record) for p in child_predicate_fns)
+
+            if kwargs.get('negated', False):
+                return not result
+            else:
+                return result
+
+    return predicate_fn
+

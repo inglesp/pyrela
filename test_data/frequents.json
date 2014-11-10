@@ -1,0 +1,24 @@
+{
+	"attrs": ["name", "pizzeria"],
+	"tuples": [
+		["Amy", "Pizza Hut"],
+		["Ben", "Pizza Hut"],
+		["Ben", "Chicago Pizza"],
+		["Cal", "Straw Hat"],
+		["Cal", "New York Pizza"],
+		["Dan", "Straw Hat"],
+		["Dan", "New York Pizza"],
+		["Eli", "Straw Hat"],
+		["Eli", "Chicago Pizza"],
+		["Fay", "Dominos"],
+		["Fay", "Little Caesars"],
+		["Gus", "Chicago Pizza"],
+		["Gus", "Pizza Hut"],
+		["Hil", "Dominos"],
+		["Hil", "Straw Hat"],
+		["Hil", "Pizza Hut"],
+		["Ian", "New York Pizza"],
+		["Ian", "Straw Hat"],
+		["Ian", "Dominos"]
+	]
+}

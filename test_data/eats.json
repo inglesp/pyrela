@@ -1,0 +1,25 @@
+{
+	"attrs": ["name", "pizza"],
+	"tuples": [
+		["Amy", "pepperoni"],
+		["Amy", "mushroom"],
+		["Ben", "pepperoni"],
+		["Ben", "cheese"],
+		["Cal", "supreme"],
+		["Dan", "pepperoni"],
+		["Dan", "cheese"],
+		["Dan", "sausage"],
+		["Dan", "supreme"],
+		["Dan", "mushroom"],
+		["Eli", "supreme"],
+		["Eli", "cheese"],
+		["Fay", "mushroom"],
+		["Gus", "mushroom"],
+		["Gus", "supreme"],
+		["Gus", "cheese"],
+		["Hil", "supreme"],
+		["Hil", "cheese"],
+		["Ian", "supreme"],
+		["Ian", "pepperoni"]
+	]
+}
