@@ -1,10 +1,6 @@
 import json
 
 
-def F(fieldname):
-    return {'field': fieldname}
-
-
 class Relation:
     def __init__(self, attrs, tuples):
         n = len(attrs)
@@ -64,10 +60,9 @@ class Relation:
         return Relation(attrs, new_tuples)
 
 
-    def select(self, *predicates):
-        predicate_fn = build_predicate_fn(*predicates)
+    def select(self, predicate):
         dicts = [dict(zip(self.attrs, t)) for t in self.tuples]
-        selected_dicts = [d for d in dicts if predicate_fn(d)]
+        selected_dicts = [d for d in dicts if predicate(d)]
         selected_tuples = {tuple(d[k] for k in self.attrs) for d in selected_dicts}
         return Relation(self.attrs, selected_tuples)
 
@@ -95,9 +90,9 @@ def join(rel1, rel2):
 
     cross_rel = cross(rel1a, rel2a)
 
-    predicates = [{'lhs': {'field': (1, attr)}, 'rhs': {'field': (2, attr)}} for attr in common_attrs]
+    predicate = and_(*[eq(F((1, attr)), F((2, attr))) for attr in common_attrs])
 
-    join_rel = cross_rel.select(*predicates)
+    join_rel = cross_rel.select(predicate)
     return join_rel.project(joined_attrs).rename(renamed_attrs)
 
 
@@ -141,44 +136,45 @@ comparators = {
 }
 
 
-def build_predicate_fn(*nodes, **kwargs):
-    if len(nodes) == 1:
-        node = nodes[0]
-
-        if isinstance(node, tuple):
-            return build_predicate_fn(*node[0], **node[1])
-
-        elif isinstance(node, dict):
-            def predicate_fn(record):
-                if isinstance(node['lhs'], dict):
-                    lhs = record[node['lhs']['field']]
-                else:
-                    lhs = node['lhs']
-
-                if isinstance(node['rhs'], dict):
-                    rhs = record[node['rhs']['field']]
-                else:
-                    rhs = node['rhs']
-
-                comparator_fn = comparators[node.get('comparator', 'exact')]
-                return comparator_fn(lhs, rhs)
-
-        else:
-            assert False
-
-    else:
-        child_predicate_fns = [build_predicate_fn(node) for node in nodes]
-
-        def predicate_fn(record):
-            if kwargs.get('connector', 'AND') == 'AND':
-                result = all(p(record) for p in child_predicate_fns)
+def build_predicate_fn(fn):
+    def predicate_fn(lhs, rhs):
+        def predicate(record):
+            if isinstance(lhs, dict):
+                lhsv = record[lhs['field']]
             else:
-                result = any(p(record) for p in child_predicate_fns)
+                lhsv = lhs
 
-            if kwargs.get('negated', False):
-                return not result
+            if isinstance(rhs, dict):
+                rhsv = record[rhs['field']]
             else:
-                return result
+                rhsv = rhs
 
+            return fn(lhsv, rhsv)
+
+        return predicate
     return predicate_fn
 
+
+
+
+for key, fn in comparators.items():
+    locals()[key] = build_predicate_fn(fn)
+
+
+eq = exact
+
+
+def and_(*ps):
+    return lambda record: all(p(record) for p in ps)
+
+
+def or_(*ps):
+    return lambda record: any(p(record) for p in ps)
+
+
+def not_(p):
+    return lambda record: not p(record)
+
+
+def F(fieldname):
+    return {'field': fieldname}

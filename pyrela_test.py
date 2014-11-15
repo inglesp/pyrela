@@ -3,114 +3,68 @@ from pyrela import *
 
 
 class PredicateTests(unittest.TestCase):
-    def test_leaf_lhs_field_rhs_value(self):
-        predicate = build_predicate_fn({'lhs': F('A'), 'rhs': 10})
+    def test_lhs_field_rhs_value(self):
+        predicate = eq(F('A'), 10)
         self.assertFalse(predicate({'A': 9}))
         self.assertTrue(predicate({'A': 10}))
         self.assertFalse(predicate({'A': 11}))
 
 
-    def test_leaf_lhs_field_rhs_value_with_comparator(self):
-        predicate = build_predicate_fn({'lhs': F('A'), 'rhs': 10, 'comparator': 'lt'})
-        self.assertTrue(predicate({'A': 9}))
-        self.assertFalse(predicate({'A': 10}))
-        self.assertFalse(predicate({'A': 11}))
-
-
-    def test_leaf_lhs_value_rhs_field(self):
-        predicate = build_predicate_fn({'lhs': 10, 'rhs': F('A')})
+    def test_lhs_value_rhs_field(self):
+        predicate = eq(10, F('A'))
         self.assertFalse(predicate({'A': 9}))
         self.assertTrue(predicate({'A': 10}))
         self.assertFalse(predicate({'A': 11}))
 
 
-    def test_leaf_lhs_value_rhs_value(self):
-        predicate = build_predicate_fn({'lhs': 10, 'rhs': 11})
+    def test_lhs_value_rhs_value(self):
+        predicate = eq(10, 11)
         self.assertFalse(predicate({}))
 
-        predicate = build_predicate_fn({'lhs': 10, 'rhs': 10})
+        predicate = eq(10, 10)
         self.assertTrue(predicate({}))
 
 
-    def test_leaf_lhs_field_rhs_field(self):
-        predicate = build_predicate_fn({'lhs': F('A'), 'rhs': F('B')})
+    def test_lhs_field_rhs_field(self):
+        predicate = eq(F('A'), F('B'))
         self.assertTrue(predicate({'A': 10, 'B': 10}))
         self.assertFalse(predicate({'A': 10, 'B': 11}))
 
 
-    def test_non_leaf_and_connector_not_negated(self):
-        predicate = build_predicate_fn(
-            {'lhs': F('A'), 'rhs': 10},
-            {'lhs': F('B'), 'rhs': 10},
-        )
-        self.assertTrue(predicate({'A': 10, 'B': 10}))
-        self.assertFalse(predicate({'A': 10, 'B': 11}))
-        self.assertFalse(predicate({'A': 11, 'B': 10}))
-        self.assertFalse(predicate({'A': 11, 'B': 11}))
+    def test_and(self):
+        true_p = lambda record: True
+        false_p = lambda record: False
+
+        self.assertTrue(and_(true_p, true_p, true_p)({}))
+        self.assertFalse(and_(false_p, true_p, true_p)({}))
+        self.assertFalse(and_(true_p, false_p, true_p)({}))
+        self.assertFalse(and_(true_p, true_p, false_p)({}))
+        self.assertFalse(and_(false_p, false_p, true_p)({}))
+        self.assertFalse(and_(false_p, true_p, false_p)({}))
+        self.assertFalse(and_(true_p, false_p, false_p)({}))
+        self.assertFalse(and_(false_p, false_p, false_p)({}))
 
 
-    def test_non_leaf_and_connector_negated(self):
-        predicate = build_predicate_fn(
-            {'lhs': F('A'), 'rhs': 10},
-            {'lhs': F('B'), 'rhs': 10},
-            negated=True,
-        )
-        self.assertFalse(predicate({'A': 10, 'B': 10}))
-        self.assertTrue(predicate({'A': 10, 'B': 11}))
-        self.assertTrue(predicate({'A': 11, 'B': 10}))
-        self.assertTrue(predicate({'A': 11, 'B': 11}))
+    def test_or(self):
+        true_p = lambda record: True
+        false_p = lambda record: False
+
+        self.assertTrue(or_(true_p, true_p, true_p)({}))
+        self.assertTrue(or_(false_p, true_p, true_p)({}))
+        self.assertTrue(or_(true_p, false_p, true_p)({}))
+        self.assertTrue(or_(true_p, true_p, false_p)({}))
+        self.assertTrue(or_(false_p, false_p, true_p)({}))
+        self.assertTrue(or_(false_p, true_p, false_p)({}))
+        self.assertTrue(or_(true_p, false_p, false_p)({}))
+        self.assertFalse(or_(false_p, false_p, false_p)({}))
 
 
-    def test_non_leaf_or_connector_not_negated(self):
-        predicate = build_predicate_fn(
-            {'lhs': F('A'), 'rhs': 10},
-            {'lhs': F('B'), 'rhs': 10},
-            connector='OR',
-        )
-        self.assertTrue(predicate({'A': 10, 'B': 10}))
-        self.assertTrue(predicate({'A': 10, 'B': 11}))
-        self.assertTrue(predicate({'A': 11, 'B': 10}))
-        self.assertFalse(predicate({'A': 11, 'B': 11}))
+    def test_not(self):
+        true_p = lambda record: True
+        false_p = lambda record: False
 
-
-    def test_non_leaf_or_connector_negated(self):
-        predicate = build_predicate_fn(
-            {'lhs': F('A'), 'rhs': 10},
-            {'lhs': F('B'), 'rhs': 10},
-            connector='OR',
-            negated=True,
-        )
-        self.assertFalse(predicate({'A': 10, 'B': 10}))
-        self.assertFalse(predicate({'A': 10, 'B': 11}))
-        self.assertFalse(predicate({'A': 11, 'B': 10}))
-        self.assertTrue(predicate({'A': 11, 'B': 11}))
-
-
-    def test_non_leaf_with_non_leaves(self):
-        predicate = build_predicate_fn(
-            (
-                [
-                    {'lhs': F('A'), 'rhs': 10},
-                    {'lhs': F('A'), 'rhs': 11},
-                ],
-                dict(connector='OR')
-            ),
-            (
-                [
-                    {'lhs': F('B'), 'rhs': 10},
-                    {'lhs': F('B'), 'rhs': 11},
-                ],
-                dict(connector='OR')
-            ),
-            connector='AND'
-        )
-        self.assertTrue(predicate({'A': 10, 'B': 10}))
-        self.assertTrue(predicate({'A': 10, 'B': 11}))
-        self.assertTrue(predicate({'A': 11, 'B': 10}))
-        self.assertTrue(predicate({'A': 11, 'B': 11}))
-        self.assertFalse(predicate({'A': 10, 'B': 12}))
-        self.assertFalse(predicate({'A': 12, 'B': 10}))
-        self.assertFalse(predicate({'A': 12, 'B': 12}))
+        self.assertTrue(not_(false_p)({}))
+        self.assertFalse(not_(true_p)({}))
 
 
 class ComparatorTests(unittest.TestCase):
@@ -148,7 +102,7 @@ class OperatorTests(unittest.TestCase):
 
     def test_select(self):
         r = Relation(['A', 'B'], [[1, 0], [1, 1]])
-        predicate = {'lhs': F('A'), 'rhs': 1}
+        predicate = eq(F('A'), 1)
         self.assertEqual(self.r1.select(predicate), r)
 
 
@@ -199,7 +153,7 @@ class PizzaTests(unittest.TestCase):
     def test_a(self):
         # Find all pizzerias frequented by at least one person under the age of
         # 18
-        predicate = ({'lhs': F('age'), 'rhs': 18, 'comparator': 'lt'})
+        predicate = lt(F('age'), 18)
         computed = join(self.person.select(predicate), self.frequents).project(['pizzeria'])
         expected = Relation(['pizzeria'], [['Straw Hat'], ['New York Pizza'], ['Pizza Hut']])
         self.assertEqual(computed, expected)
@@ -208,17 +162,14 @@ class PizzaTests(unittest.TestCase):
     def test_b(self):
         # Find the names of all females who eat either mushroom or pepperoni
         # pizza (or both)
-        predicates = [
-            {'lhs': F('gender'), 'rhs': 'female'},
-            (
-                [
-                    {'lhs': F('pizza'), 'rhs': 'mushroom'},
-                    {'lhs': F('pizza'), 'rhs': 'pepperoni'},
-                ],
-                dict(connector='OR')
+        predicate = and_(
+            eq(F('gender'), 'female'),
+            or_(
+                eq(F('pizza'), 'mushroom'),
+                eq(F('pizza'), 'pepperoni'),
             )
-        ]
-        computed = join(self.person, self.eats).select(*predicates).project(['name'])
+        )
+        computed = join(self.person, self.eats).select(predicate).project(['name'])
         expected = Relation(['name'], [['Amy'], ['Fay']])
         self.assertEqual(computed, expected)
 
@@ -226,20 +177,20 @@ class PizzaTests(unittest.TestCase):
     def test_c(self):
         # Find the names of all females who eat both mushroom and pepperoni
         # pizza
-        mushroom_predicates =  [
-            {'lhs': F('pizza'), 'rhs': 'mushroom'},
-            {'lhs': F('gender'), 'rhs': 'female'},
-        ]
+        mushroom_predicate = and_(
+            eq(F('pizza'), 'mushroom'),
+            eq(F('gender'), 'female')
+        )
         mushroom_rel = join(self.person, self.eats). \
-            select(*mushroom_predicates). \
+            select(mushroom_predicate). \
             project(['name'])
 
-        pepperoni_predicates =  [
-            {'lhs': F('pizza'), 'rhs': 'pepperoni'},
-            {'lhs': F('gender'), 'rhs': 'female'},
-        ]
+        pepperoni_predicate = and_(
+            eq(F('pizza'), 'pepperoni'),
+            eq(F('gender'), 'female')
+        )
         pepperoni_rel = join(self.person, self.eats). \
-            select(*pepperoni_predicates). \
+            select(pepperoni_predicate). \
             project(['name'])
 
         computed = intersection(mushroom_rel, pepperoni_rel)
@@ -250,8 +201,8 @@ class PizzaTests(unittest.TestCase):
         # Find all pizzerias that serve at least one pizza that Amy eats for
         # less than $10.00
         computed = join(
-            self.eats.select({'lhs': F('name'), 'rhs': 'Amy'}),
-            self.serves.select({'lhs': F('price'), 'rhs': 10, 'comparator': 'lt'}),
+            self.eats.select(eq(F('name'), 'Amy')),
+            self.serves.select(lt(F('price'), 10))
         ).project(['pizzeria'])
 
         expected = Relation(['pizzeria'], [['Little Caesars'], ['Straw Hat'], ['New York Pizza']])
@@ -261,12 +212,12 @@ class PizzaTests(unittest.TestCase):
     def test_e(self):
         # Find all pizzerias that are frequented by only females or only males
         female_rel = join(
-            self.person.select({'lhs': F('gender'), 'rhs': 'female'}),
+            self.person.select(eq(F('gender'), 'female')),
             self.frequents
         ).project(['pizzeria'])
 
         male_rel = join(
-            self.person.select({'lhs': F('gender'), 'rhs': 'male'}),
+            self.person.select(eq(F('gender'), 'male')),
             self.frequents
         ).project(['pizzeria'])
 
@@ -322,18 +273,19 @@ class PizzaTests(unittest.TestCase):
     def test_i(self):
         # Find the pizzeria serving the cheapest pepperoni pizza. In the case
         # of ties, return all of the cheapest-pepperoni pizzerias
-        pepperoni_rel = self.serves.select({'lhs': F('pizza'), 'rhs': 'pepperoni'})
+        pepperoni_rel = self.serves.select(eq(F('pizza'), 'pepperoni'))
 
         computed = diff(
             pepperoni_rel.project(['pizzeria']),
             cross(
                 pepperoni_rel.project(['pizzeria', 'price']),
                 pepperoni_rel.project(['pizzeria', 'price']).rename(['pizzeria2', 'price2'])
-            ).select({'lhs': F('price'), 'rhs': F('price2'), 'comparator': 'gt'}).project(['pizzeria'])
+            ).select(gt(F('price'), F('price2'))).project(['pizzeria'])
         )
 
         expected = Relation(['pizzeria'], [['Straw Hat'], ['New York Pizza']])
         self.assertEqual(computed, expected)
+
 
 if __name__ == '__main__':
     unittest.main()
