@@ -75,7 +75,7 @@ def cross(rel1, rel2):
     return Relation(new_attrs, new_tuples)
 
 
-def join(rel1, rel2):
+def natural_join(rel1, rel2):
     common_attrs = set(rel1.attrs) & set(rel2.attrs)
     assert common_attrs
 
@@ -94,6 +94,13 @@ def join(rel1, rel2):
 
     join_rel = cross_rel.select(predicate)
     return join_rel.project(joined_attrs).rename(renamed_attrs)
+
+
+def inner_join(rel1, rel2, *attr_pairs):
+    cross_rel = cross(rel1, rel2)
+    predicate = and_(*[eq(F(attr1), F(attr2)) for attr1, attr2 in attr_pairs])
+    return cross_rel.select(predicate)
+
 
 
 def diff(rel1, rel2):

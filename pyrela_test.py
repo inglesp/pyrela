@@ -113,11 +113,18 @@ class OperatorTests(unittest.TestCase):
         self.assertEqual(cross(ra, rb), self.r1)
 
 
-    def test_join(self):
+    def test_natural_join(self):
         r1 = Relation(['A', 'B', 'C'], [[0, 0, 0], [0, 1, 1]])
         r2 = Relation(['B', 'C', 'D'], [[0, 0, 0], [1, 1, 0]])
         rj = Relation(['A', 'B', 'C', 'D'], [[0, 0, 0, 0], [0, 1, 1, 0]])
-        self.assertEqual(join(r1, r2), rj)
+        self.assertEqual(natural_join(r1, r2), rj)
+
+
+    def test_inner_join(self):
+        r1 = Relation(['A', 'B', 'C'], [[0, 0, 0], [0, 1, 1]])
+        r2 = Relation(['D', 'E', 'F'], [[0, 0, 1], [0, 1, 0]])
+        rj = Relation(['A', 'B', 'C', 'D', 'E', 'F'], [[0, 0, 0, 0, 0, 1], [0, 1, 1, 0, 1, 0]])
+        self.assertEqual(inner_join(r1, r2, ('A', 'D'), ('B', 'E')), rj)
 
 
     def test_diff(self):
@@ -154,7 +161,7 @@ class PizzaTests(unittest.TestCase):
         # Find all pizzerias frequented by at least one person under the age of
         # 18
         predicate = lt(F('age'), 18)
-        computed = join(self.person.select(predicate), self.frequents).project(['pizzeria'])
+        computed = natural_join(self.person.select(predicate), self.frequents).project(['pizzeria'])
         expected = Relation(['pizzeria'], [['Straw Hat'], ['New York Pizza'], ['Pizza Hut']])
         self.assertEqual(computed, expected)
 
@@ -169,7 +176,7 @@ class PizzaTests(unittest.TestCase):
                 eq(F('pizza'), 'pepperoni'),
             )
         )
-        computed = join(self.person, self.eats).select(predicate).project(['name'])
+        computed = natural_join(self.person, self.eats).select(predicate).project(['name'])
         expected = Relation(['name'], [['Amy'], ['Fay']])
         self.assertEqual(computed, expected)
 
@@ -181,7 +188,7 @@ class PizzaTests(unittest.TestCase):
             eq(F('pizza'), 'mushroom'),
             eq(F('gender'), 'female')
         )
-        mushroom_rel = join(self.person, self.eats). \
+        mushroom_rel = natural_join(self.person, self.eats). \
             select(mushroom_predicate). \
             project(['name'])
 
@@ -189,7 +196,7 @@ class PizzaTests(unittest.TestCase):
             eq(F('pizza'), 'pepperoni'),
             eq(F('gender'), 'female')
         )
-        pepperoni_rel = join(self.person, self.eats). \
+        pepperoni_rel = natural_join(self.person, self.eats). \
             select(pepperoni_predicate). \
             project(['name'])
 
@@ -200,7 +207,7 @@ class PizzaTests(unittest.TestCase):
     def test_d(self):
         # Find all pizzerias that serve at least one pizza that Amy eats for
         # less than $10.00
-        computed = join(
+        computed = natural_join(
             self.eats.select(eq(F('name'), 'Amy')),
             self.serves.select(lt(F('price'), 10))
         ).project(['pizzeria'])
@@ -211,12 +218,12 @@ class PizzaTests(unittest.TestCase):
 
     def test_e(self):
         # Find all pizzerias that are frequented by only females or only males
-        female_rel = join(
+        female_rel = natural_join(
             self.person.select(eq(F('gender'), 'female')),
             self.frequents
         ).project(['pizzeria'])
 
-        male_rel = join(
+        male_rel = natural_join(
             self.person.select(eq(F('gender'), 'male')),
             self.frequents
         ).project(['pizzeria'])
@@ -232,7 +239,7 @@ class PizzaTests(unittest.TestCase):
         # pizza pairs
         computed = diff(
             self.eats,
-            join(self.frequents, self.serves).project(['name', 'pizza'])
+            natural_join(self.frequents, self.serves).project(['name', 'pizza'])
         )
 
         expected = Relation(['name', 'pizza'], [['Amy', 'mushroom'], ['Dan', 'mushroom'], ['Gus', 'mushroom']])
@@ -246,7 +253,7 @@ class PizzaTests(unittest.TestCase):
             self.person.project(['name']),
             diff(
                 self.frequents,
-                join(self.eats, self.serves).project(['name', 'pizzeria'])
+                natural_join(self.eats, self.serves).project(['name', 'pizzeria'])
             ).project(['name'])
         )
 
@@ -261,7 +268,7 @@ class PizzaTests(unittest.TestCase):
         computed = diff(
             self.person.project(['name']),
             diff(
-                join(self.eats, self.serves).project(['name', 'pizzeria']),
+                natural_join(self.eats, self.serves).project(['name', 'pizzeria']),
                 self.frequents
             ).project(['name'])
         )
