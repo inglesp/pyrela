@@ -83,6 +83,40 @@ class ComparatorTests(unittest.TestCase):
         self.assertFalse(fn('AAA', 'BBB'))
 
 
+class AggregatorTests(unittest.TestCase):
+    def setUp(self):
+        self.group = [{'A': 1}, {'A': 3}, {'A': 6}]
+
+    def test_count(self):
+        aggregate = count('A')
+        self.assertEqual(3, aggregate(self.group))
+
+
+    def test_count_star(self):
+        aggregate = count('*')
+        self.assertEqual(3, aggregate(self.group))
+
+
+    def test_sum(self):
+        aggregate = sum_('A')
+        self.assertEqual(10, aggregate(self.group))
+
+
+    def test_avg(self):
+        aggregate = avg('A')
+        self.assertEqual(10.0 / 3, aggregate(self.group))
+
+
+    def test_min(self):
+        aggregate = min_('A')
+        self.assertEqual(1, aggregate(self.group))
+
+
+    def test_max(self):
+        aggregate = max_('A')
+        self.assertEqual(6, aggregate(self.group))
+
+
 class OperatorTests(unittest.TestCase):
     def setUp(self):
         self.r1 = Relation(['A', 'B'], [[0, 0], [1, 0], [0, 1], [1, 1]])
@@ -104,6 +138,14 @@ class OperatorTests(unittest.TestCase):
         r = Relation(['A', 'B'], [[1, 0], [1, 1]])
         predicate = eq(F('A'), 1)
         self.assertEqual(self.r1.select(predicate), r)
+
+
+    def test_group_by(self):
+        r = Relation(['A', 'B'], [[0, 0], [1, 0], [1, 1]])
+        rg = Relation(['A', 'count(B)', 'sum(B)'], [[0, 1, 0], [1, 2, 1]])
+
+        aggregations = [count('B'), sum_('B')]
+        self.assertEqual(r.group_by(['A'], aggregations), rg)
 
 
     def test_cross(self):

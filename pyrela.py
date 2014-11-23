@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import copy
 import json
 
@@ -36,7 +37,7 @@ class Relation:
 
         lines.append('|'.join(row))
 
-        lines.append('+'.join(['-' * (widths[i] + 1) for i  in cols]))
+        lines.append('+'.join(['-' * (widths[i] + 1) for i in cols]))
 
         for t in self.tuples:
             row = []
@@ -65,8 +66,8 @@ class Relation:
     def project(self, attrs):
         assert set(attrs) <= set(self.attrs)
 
-        indices = [self.attrs.index(a) for a in attrs]
-        new_tuples = [[t[i] for i in indices] for t in self.tuples]
+        ixs = [self.attrs.index(a) for a in attrs]
+        new_tuples = [[t[ix] for ix in ixs] for t in self.tuples]
         return Relation(attrs, new_tuples)
 
 
@@ -75,6 +76,72 @@ class Relation:
         selected_dicts = [d for d in dicts if predicate(d)]
         selected_tuples = {tuple(d[k] for k in self.attrs) for d in selected_dicts}
         return Relation(self.attrs, selected_tuples)
+
+
+    def group_by(self, grouping_attrs, aggregations):
+        assert set(grouping_attrs) <= set(self.attrs)
+
+        ixs = [self.attrs.index(a) for a in grouping_attrs]
+        groups = defaultdict(list)
+
+        for t in self.tuples:
+            key = tuple(t[ix] for ix in ixs)
+            record = dict(zip(self.attrs, t))
+            groups[key].append(record)
+
+        new_attrs = grouping_attrs
+        new_tuples = set()
+
+        for agg in aggregations:
+            new_attrs += [agg.attr_name]
+
+        for key, group in groups.items():
+            t = key
+            for agg in aggregations:
+                t += tuple([agg(group)])
+            new_tuples.add(t)
+
+        return Relation(new_attrs, new_tuples)
+
+
+def count(attr):
+    def aggregate(group):
+        return len(group)
+    aggregate.attr_name = 'count({})'.format(attr)
+    return aggregate
+
+
+def sum_(attr):
+    def aggregate(group):
+        values = [record[attr] for record in group]
+        return sum(values)
+    aggregate.attr_name = 'sum({})'.format(attr)
+    return aggregate
+
+
+def avg(attr):
+    def aggregate(group):
+        values = [record[attr] for record in group]
+        return sum(values) * 1.0 / len(values)
+    aggregate.attr_name = 'avg({})'.format(attr)
+    return aggregate
+
+
+def min_(attr):
+    def aggregate(group):
+        values = [record[attr] for record in group]
+        return min(values)
+    aggregate.attr_name = 'min({})'.format(attr)
+    return aggregate
+
+
+def max_(attr):
+    def aggregate(group):
+        values = [record[attr] for record in group]
+        return max(values)
+    aggregate.attr_name = 'max({})'.format(attr)
+    return aggregate
+
 
 
 def cross(rel1, rel2):
@@ -313,8 +380,8 @@ class Selection:
 
     def records_for_alias(self, alias):
         # This duplicates .project and .rename.
-        indices = [i for i in range(len(self.attrs)) if self.attrs[i][0] == alias]
-        new_tuples = [[t[i] for i in indices] for t in self.tuples]
+        ixs = [ix for ix in range(len(self.attrs)) if self.attrs[ix][0] == alias]
+        new_tuples = [[t[ix] for ix in ixs] for t in self.tuples]
 
         attrs = [attr[1] for attr in self.attrs if attr[0] == alias]
         return [dict(zip(attrs, t)) for t in new_tuples]
