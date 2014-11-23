@@ -245,6 +245,9 @@ class Table:
         else:
             rel = self.rel
 
+        if order is not None:
+            order = [((self.name, attr), direction) for attr, direction in order]
+
         attrs = [(self.name, attr) for attr in self.attrs]
         rel = rel.rename(attrs)
         return Selection(rel, order=order, offset=offset, limit=limit)

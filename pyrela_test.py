@@ -319,8 +319,17 @@ class TableTests(unittest.TestCase):
         self.assertEqual(Relation(['id', 'A'], [[1, 100], [2, 10], [3, 11]]), self.t.rel)
 
 
-    def test_select(self):
-        selection = self.t.select(lte(F('A'), 10))
+    def test_select_with_no_predicate(self):
+        selection = self.t.select(order=[('A', 'asc')])
+
+        self.assertEqual(
+            [{'id': 1, 'A': 9}, {'id': 2, 'A': 10}, {'id': 3, 'A': 11}],
+            selection.records_for_alias('t')
+        )
+
+
+    def test_select_with_predicate(self):
+        selection = self.t.select(lte(F('A'), 10), order=[('A', 'asc')])
 
         self.assertEqual(
             [{'id': 1, 'A': 9}, {'id': 2, 'A': 10}],
