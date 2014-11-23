@@ -1,3 +1,4 @@
+from copy import copy
 import json
 
 
@@ -20,22 +21,27 @@ class Relation:
 
     def __repr__(self):
         cols = range(len(self.attrs))
-        widths = [1 + max([len(str(t[i])) for t in self.tuples] + [len(self.attrs[i])]) 
+
+        headings = [str(attr) for attr in self.attrs]
+
+        widths = [1 + max([len(str(t[i])) for t in self.tuples] + [len(headings[i])])
                   for i in cols]
 
-        headings = [' ' + self.attrs[i] + ' ' * (widths[i] - len(self.attrs[i]))
-                    for i in cols]
-
         lines = []
- 
-        lines.append('|'.join(headings))
+
+        row = []
+        for i in cols:
+            e = ' ' + headings[i] + ' ' * (widths[i] - len(headings[i]))
+            row.append(e)
+
+        lines.append('|'.join(row))
 
         lines.append('+'.join(['-' * (widths[i] + 1) for i  in cols]))
 
         for t in self.tuples:
             row = []
             for i in cols:
-                e = ' ' + str(t[i]) + ' ' * (widths[i] - len(str(t[i]))) 
+                e = ' ' + str(t[i]) + ' ' * (widths[i] - len(str(t[i])))
                 row.append(e)
 
             lines.append('|'.join(row))
@@ -45,6 +51,10 @@ class Relation:
 
     def __eq__(self, other):
         return self.attrs == other.attrs and self.tuples == other.tuples
+
+
+    def __len__(self):
+        return len(self.tuples)
 
 
     def rename(self, new_attrs):
@@ -185,3 +195,101 @@ def not_(p):
 
 def F(fieldname):
     return {'field': fieldname}
+
+
+class Table:
+    def __init__(self, name, attrs):
+        self.name = name
+        self.attrs = attrs
+        self.rel = Relation(attrs, set())
+        self.last_id = 0
+
+
+    def get_next_id(self):
+        self.last_id += 1
+        return self.last_id
+
+
+    def insert(self, record):
+        assert set(record) | set(['id']) == set(self.attrs)
+        record = copy(record)
+        record['id'] = self.get_next_id()
+        tpl = tuple(record[attr] for attr in self.attrs)
+        self.rel = union(self.rel, Relation(self.attrs, [tpl]))
+        return record['id']
+
+
+    def delete(self, predicate):
+        self.rel = self.rel.select(not_(predicate))
+
+
+    # This will need to be more sophisticated!
+    def update(self, predicate, attr, value):
+        assert attr in self.attrs
+        to_update = self.rel.select(predicate)
+        to_not_update = self.rel.select(not_(predicate))
+
+        ix = self.attrs.index(attr)
+        updated_tuples = [tpl[:ix] + (value,) + tpl[ix+1:] for tpl in to_update.tuples]
+        updated_rel = Relation(self.attrs, updated_tuples)
+        self.rel = union(updated_rel, to_not_update)
+
+
+    def __len__(self):
+        return len(self.rel)
+
+
+    def select(self, predicate=None, order=None, offset=None, limit=None):
+        if predicate is not None:
+            rel = self.rel.select(predicate)
+        else:
+            rel = self.rel
+
+        attrs = [(self.name, attr) for attr in self.attrs]
+        rel = rel.rename(attrs)
+        return Selection(rel, order=order, offset=offset, limit=limit)
+
+
+class Selection:
+    def __init__(self, rel, order=None, offset=None, limit=None):
+        if order is None:
+            assert offset is None and limit is None
+
+        self.attrs = rel.attrs
+        self.tuples = list(rel.tuples)
+
+        if order is not None:
+            for attr, direction in order[::-1]:
+                ix = self.attrs.index(attr)
+                assert direction in ['asc', 'desc']
+
+                self.tuples = sorted(
+                    self.tuples,
+                    key=lambda t: t[ix],
+                    reverse=(direction == 'desc')
+                )
+
+        if offset is None:
+            low = 0
+        else:
+            low = offset
+
+        if limit is None:
+            high = len(self.tuples)
+        else:
+            high = low + limit
+
+        self.tuples = self.tuples[low:high]
+
+
+    def records(self):
+        return [dict(zip(self.attrs, t)) for t in self.tuples]
+
+
+    def records_for_alias(self, alias):
+        # This duplicates .project and .rename.
+        indices = [i for i in range(len(self.attrs)) if self.attrs[i][0] == alias]
+        new_tuples = [[t[i] for i in indices] for t in self.tuples]
+
+        attrs = [attr[1] for attr in self.attrs if attr[0] == alias]
+        return [dict(zip(attrs, t)) for t in new_tuples]

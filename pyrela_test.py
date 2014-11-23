@@ -294,5 +294,92 @@ class PizzaTests(unittest.TestCase):
         self.assertEqual(computed, expected)
 
 
+class TableTests(unittest.TestCase):
+    def setUp(self):
+        self.t = Table('t', ['id', 'A'])
+        for a in [9, 10, 11]:
+            self.t.insert({'A': a})
+
+
+    def test_insert(self):
+        id = self.t.insert({'A': 12})
+        self.assertEqual(4, id)
+        self.assertEqual(Relation(['id', 'A'], [[1, 9], [2, 10], [3, 11], [4, 12]]), self.t.rel)
+
+
+    def test_delete(self):
+        self.t.delete(lt(F('A'), 10))
+
+        self.assertEqual(Relation(['id', 'A'], [[2, 10], [3, 11]]), self.t.rel)
+
+
+    def test_update(self):
+        self.t.update(lt(F('A'), 10), 'A', 100)
+
+        self.assertEqual(Relation(['id', 'A'], [[1, 100], [2, 10], [3, 11]]), self.t.rel)
+
+
+    def test_select(self):
+        selection = self.t.select(lte(F('A'), 10))
+
+        self.assertEqual(
+            [{'id': 1, 'A': 9}, {'id': 2, 'A': 10}],
+            selection.records_for_alias('t')
+        )
+
+
+class SelectionTests(unittest.TestCase):
+    def setUp(self):
+        self.rel = Relation(['A'], [[11], [9], [10]])
+
+
+    def test_with_no_options(self):
+        selection = Selection(self.rel)
+        self.assertEqual(
+            [[('A', a)] for a in [9, 10, 11]],
+            sorted(list(record.items()) for record in selection.records())
+        )
+
+
+    def test_offset_with_no_order(self):
+        with self.assertRaises(AssertionError):
+            Selection(self.rel, offset=1)
+
+
+    def test_limit_with_no_order(self):
+        with self.assertRaises(AssertionError):
+            Selection(self.rel, limit=1)
+
+
+    def test_offset(self):
+        selection = Selection(self.rel, order=[('A', 'asc')], offset=1)
+        self.assertEqual([{'A': 10}, {'A': 11}], selection.records())
+
+
+    def test_limit(self):
+        selection = Selection(self.rel, order=[('A', 'asc')], limit=1)
+        self.assertEqual([{'A': 9}], selection.records())
+
+
+    def test_offset_and_limit(self):
+        selection = Selection(self.rel, order=[('A', 'asc')], offset=1, limit=1)
+        self.assertEqual([{'A': 10}], selection.records())
+
+
+    def test_order(self):
+        rel = Relation(['A', 'B', 'C'], [[1, 2, 3], [1, 2, 1], [1, 3, 2]])
+        selection = Selection(rel, order=[('A', 'asc'), ('B', 'desc'), ('C', 'asc')])
+
+        self.assertEqual(
+            [
+                {'A': 1, 'B': 3, 'C': 2},
+                {'A': 1, 'B': 2, 'C': 1},
+                {'A': 1, 'B': 2, 'C': 3},
+            ],
+            selection.records()
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
+
