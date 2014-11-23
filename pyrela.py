@@ -253,6 +253,28 @@ class Table:
         return Selection(rel, order=order, offset=offset, limit=limit)
 
 
+class InnerJoin:
+    def __init__(self, lhs, rhs, *attr_pairs):
+        lhs_attrs = [(lhs.name, attr) for attr in lhs.attrs]
+        rhs_attrs = [(rhs.name, attr) for attr in rhs.attrs]
+
+        lhs_rel = lhs.rel.rename(lhs_attrs)
+        rhs_rel = rhs.rel.rename(rhs_attrs)
+
+        attr_pairs = [((lhs.name, lhs_attr), (rhs.name, rhs_attr)) for lhs_attr, rhs_attr in attr_pairs]
+
+        self.rel = inner_join(lhs_rel, rhs_rel, *attr_pairs)
+
+
+    def select(self, predicate=None, order=None, offset=None, limit=None):
+        if predicate is not None:
+            rel = self.rel.select(predicate)
+        else:
+            rel = self.rel
+
+        return Selection(rel, order=order, offset=offset, limit=limit)
+
+
 class Selection:
     def __init__(self, rel, order=None, offset=None, limit=None):
         if order is None:
@@ -296,3 +318,4 @@ class Selection:
 
         attrs = [attr[1] for attr in self.attrs if attr[0] == alias]
         return [dict(zip(attrs, t)) for t in new_tuples]
+

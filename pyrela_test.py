@@ -337,6 +337,43 @@ class TableTests(unittest.TestCase):
         )
 
 
+class InnerJoinTests(unittest.TestCase):
+    def setUp(self):
+        t1 = Table('t1', ['id', 'A'])
+        t1.insert({'A': 9})
+        t1.insert({'A': 10})
+
+        t2 = Table('t2', ['id', 't1_id', 'B'])
+        t2.insert({'t1_id': 1, 'B': 19})
+        t2.insert({'t1_id': 1, 'B': 20})
+        t2.insert({'t1_id': 2, 'B': 21})
+
+        self.j = InnerJoin(t1, t2, ('id', 't1_id'))
+
+
+    def test_select_with_no_predicate(self):
+        self.assertEqual(
+            [
+                {('t1', 'id'): 1, ('t1', 'A'): 9, ('t2', 'id'): 1, ('t2', 't1_id'): 1, ('t2', 'B'): 19},
+                {('t1', 'id'): 1, ('t1', 'A'): 9, ('t2', 'id'): 2, ('t2', 't1_id'): 1, ('t2', 'B'): 20},
+                {('t1', 'id'): 2, ('t1', 'A'): 10, ('t2', 'id'): 3, ('t2', 't1_id'): 2, ('t2', 'B'): 21},
+
+            ],
+            self.j.select(order=[(('t2', 'id'), 'asc')]).records()
+        )
+
+
+    def test_select_with_predicate(self):
+        self.assertEqual(
+            [
+                {('t1', 'id'): 1, ('t1', 'A'): 9, ('t2', 'id'): 2, ('t2', 't1_id'): 1, ('t2', 'B'): 20},
+                {('t1', 'id'): 2, ('t1', 'A'): 10, ('t2', 'id'): 3, ('t2', 't1_id'): 2, ('t2', 'B'): 21},
+
+            ],
+            self.j.select(gt(F(('t2', 'B')), 19), order=[(('t2', 'id'), 'asc')],).records()
+        )
+
+
 class SelectionTests(unittest.TestCase):
     def setUp(self):
         self.rel = Relation(['A'], [[11], [9], [10]])
